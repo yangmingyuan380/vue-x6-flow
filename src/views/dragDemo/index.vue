@@ -54,7 +54,7 @@
             content="执行"
             placement="bottom"
           >
-            <i class="el-icon-video-play" @click="startFn()" />
+            <i class="el-icon-video-play" @click="startExecute()" />
           </el-tooltip>
           <el-tooltip
             class="item"
@@ -106,6 +106,7 @@ import MenuBar from "./components/menuBar";
 import Drawer from "./components/drawer";
 import DialogCondition from "./components/dialog/condition.vue";
 import DialogMysql from "./components/dialog/mysql.vue";
+import { apiFuncArray } from "../../api/api1";
 
 const nodeStatusList = [
   [
@@ -603,6 +604,24 @@ export default {
         this.showNodeStatus(statusList);
       }, 300);
     },
+    // 执行所有节点函数，深度优先遍历
+    executeNode(nodeId, inputData) {
+      console.log(this.graph);
+      let node = this.graph.getCellById(nodeId);
+      console.log(node.getData().label, node.getData());
+      let resData;
+      if (node.getData().execute) {
+        resData = node.getData().execute(node, inputData);
+      }
+
+      let edges = this.graph.getOutgoingEdges(nodeId);
+      if (edges && edges.length > 0) {
+        for (let edge of edges) {
+          let targetNode = edge.getTargetNode();
+          this.executeNode(targetNode.id, resData);
+        }
+      }
+    },
     // 初始化节点/边
     init(data = []) {
       const cells = [];
@@ -611,6 +630,7 @@ export default {
           cells.push(this.graph.createEdge(item));
         } else {
           delete item.component;
+          item.data.execute = apiFuncArray[item.data.func];
           cells.push(this.graph.createNode(item));
         }
       });
@@ -625,9 +645,17 @@ export default {
       this.graph.centerContent();
     },
     startFn(item) {
+      // 关闭所有setTimeOut函数
       this.timer && clearTimeout(this.timer);
       this.init(item || DataJson);
+      this.executeNode(this.graph.getCellById(1));
       this.showNodeStatus(Object.assign([], nodeStatusList));
+      this.graph.centerContent();
+    },
+    startExecute() {
+      // 关闭所有setTimeOut函数
+      this.timer && clearTimeout(this.timer);
+      this.executeNode(this.graph.getCellById(1));
       this.graph.centerContent();
     },
     createMenuFn() {},
